@@ -304,7 +304,6 @@ Made with ❤️ by **Monank Sojitra**.
 ## Support
 
 - [Issues](https://github.com/monanksojitra/system-clean/issues)
-- [Discussions](https://github.com/monanksojitra/system-clean/discussions)
 - Contact: [sojitramonank2003@gmail.com](mailto:sojitramonank2003@gmail.com)
 - Sponsor/Donate: [Buy Me a Coffee](https://buymeacoffee.com/monanksojitra)
 
