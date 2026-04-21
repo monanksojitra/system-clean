@@ -1,0 +1,59 @@
+{
+  "name": "@monanksojitra/system-clean",
+  "version": "1.0.0",
+  "description": "Cross-platform system cache cleaner for developers",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "system-clean": "./bin/system-clean.js"
+  },
+  "type": "module",
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node bin/system-clean.js",
+    "scan": "node bin/system-clean.js scan",
+    "test": "node --test",
+    "verify": "npm test && npm pack --dry-run"
+  },
+  "keywords": [
+    "cache",
+    "cleaner",
+    "cleanup",
+    "system",
+    "optimize",
+    "dev-tools",
+    "npm",
+    "yarn",
+    "pip"
+  ],
+  "author": {
+    "name": "Monank Sojitra",
+    "email": "sojitramonank2003@gmail.com",
+    "url": "https://github.com/monanksojitra"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/monanksojitra/system-clean"
+  },
+  "bugs": {
+    "url": "https://github.com/monanksojitra/system-clean/issues"
+  },
+  "homepage": "https://github.com/monanksojitra/system-clean#readme",
+  "funding": {
+    "type": "buymeacoffee",
+    "url": "https://buymeacoffee.com/monanksojitra"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "preferGlobal": true
+}
