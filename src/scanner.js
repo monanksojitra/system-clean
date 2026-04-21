@@ -66,7 +66,8 @@ export function getDirSize(dirPath) {
     const bytesOutput = execFileSync("du", ["-sb", dirPath], {
       encoding: "utf8",
       maxBuffer: 10 * 1024 * 1024,
-      timeout: 30000
+      timeout: 30000,
+      stdio: ["ignore", "pipe", "ignore"]
     });
 
     const byteSize = parseInt(bytesOutput.trim().split(/\s+/)[0], 10);
@@ -82,7 +83,8 @@ export function getDirSize(dirPath) {
     const kbOutput = execFileSync("du", ["-sk", dirPath], {
       encoding: "utf8",
       maxBuffer: 10 * 1024 * 1024,
-      timeout: 30000
+      timeout: 30000,
+      stdio: ["ignore", "pipe", "ignore"]
     });
 
     const kbSize = parseInt(kbOutput.trim().split(/\s+/)[0], 10);

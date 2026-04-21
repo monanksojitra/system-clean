@@ -124,11 +124,13 @@ export function getTempDir() {
 export function getConfigDir() {
   const home = getHomeDir();
   const platform = detectPlatform();
+  const xdgConfigHome = process.env.XDG_CONFIG_HOME;
 
   switch (platform) {
     case PLATFORMS.LINUX:
-      return process.env.XDG_CONFIG_HOME || path.join(home, ".config");
+      return xdgConfigHome || path.join(home, ".config");
     case PLATFORMS.MACOS:
+      if (xdgConfigHome) return xdgConfigHome;
       return path.join(home, "Library", "Application Support");
     case PLATFORMS.WINDOWS:
       return process.env.APPDATA || path.join(home, "AppData", "Roaming");
