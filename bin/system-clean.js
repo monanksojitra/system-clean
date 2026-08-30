@@ -6,7 +6,7 @@
  */
 
 import readline from "node:readline";
-import { getSystemInfo, PLATFORMS } from "../src/detector.js";
+import { getSystemInfo, PLATFORMS, isElevated } from "../src/detector.js";
 import { getCacheMap, CATEGORIES } from "../src/cache-map.js";
 import { scanCategory, formatSize } from "../src/scanner.js";
 import { cleanCategory } from "../src/cleaner.js";
@@ -20,6 +20,7 @@ import {
   getConfigCleanableCategories
 } from "../src/runtime-config.js";
 import * as logger from "../src/logger.js";
+import { audit, printAuditReport } from "../src/audit.js";
 
 function printJson(payload) {
   console.log(JSON.stringify(payload, null, 2));
@@ -74,6 +75,10 @@ async function main() {
     return;
   }
 
+  if (opts.command === "audit") {
+    return handleAudit(opts);
+  }
+
   // No command = show help
   logger.printHelp();
 }
@@ -89,7 +94,9 @@ function parseOptions(args) {
     force: false,
     simple: false,
     help: false,
-    json: false
+    json: false,
+    global: false,
+    audit: false
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -127,6 +134,15 @@ function parseOptions(args) {
       opts.command = "config";
     } else if (arg === "help") {
       opts.help = true;
+    } else if (arg === "--audit") {
+      opts.audit = true;
+      opts.command = "audit";
+    } else if (arg === "--global") {
+      opts.global = true;
+    } else if (arg === "audit") {
+      opts.command = "audit";
+    } else if (arg === "global") {
+      opts.global = true;
     }
   }
 
@@ -219,6 +235,22 @@ function handleScan(cacheMap, opts, config = {}, sysInfo = getSystemInfo()) {
  * Handle clean specific category
  */
 function handleClean(cacheMap, opts, config = {}) {
+  if (isElevated()) {
+    if (opts.json) {
+      printJson({
+        ok: false,
+        command: "clean",
+        error: {
+          code: "elevated",
+          message: "refusing to clean as root"
+        }
+      });
+    } else {
+      logger.error("refusing to clean as root");
+    }
+    process.exit(1);
+  }
+
   const target = opts.category;
   const force = opts.force || config.confirmAll === false;
   const minThreshold = getEffectiveMinThreshold(config);
@@ -313,6 +345,18 @@ function handleClean(cacheMap, opts, config = {}) {
     return;
   }
 
+  if (opts.json && !opts.force) {
+    printJson({
+      ok: false,
+      command: "clean",
+      error: {
+        code: "force_required",
+        message: "--force required with --json"
+      }
+    });
+    process.exit(1);
+  }
+
   if (opts.json) {
     const result = cleanCategory(cacheMap, target, deep);
     printJson({
@@ -359,6 +403,22 @@ function handleClean(cacheMap, opts, config = {}) {
  * Handle clean all
  */
 function handleCleanAll(cacheMap, opts, config = {}) {
+  if (isElevated()) {
+    if (opts.json) {
+      printJson({
+        ok: false,
+        command: "clean-all",
+        error: {
+          code: "elevated",
+          message: "refusing to clean as root"
+        }
+      });
+    } else {
+      logger.error("refusing to clean as root");
+    }
+    process.exit(1);
+  }
+
   const force = opts.force || config.confirmAll === false;
   const protectedCategories = getProtectedCategories(config);
   const cleanableCategories = getConfigCleanableCategories(config);
@@ -401,6 +461,18 @@ function handleCleanAll(cacheMap, opts, config = {}) {
       logger.info("No caches matched current config rules for clean-all");
     }
     return;
+  }
+
+  if (opts.json && !opts.force) {
+    printJson({
+      ok: false,
+      command: "clean-all",
+      error: {
+        code: "force_required",
+        message: "--force required with --json"
+      }
+    });
+    process.exit(1);
   }
 
   if (opts.json) {
@@ -497,6 +569,23 @@ function handleConfig(opts, config) {
 
   console.log("\n📋 Current Configuration:");
   console.log(JSON.stringify(config, null, 2));
+}
+
+/**
+ * Handle audit command
+ */
+function handleAudit(opts) {
+  const targetDir = opts.global ? process.cwd() : process.cwd();
+  const report = audit(targetDir, { global: opts.global });
+  printAuditReport(report);
+
+  if (opts.json) {
+    printJson({ ok: true, command: "audit", ...report });
+  }
+
+  if (report.hasIssues) {
+    process.exit(1);
+  }
 }
 
 // Export for testing

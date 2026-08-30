@@ -15,13 +15,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4 # ponytail: for maximum security, pin to a full SHA (e.g., @a2f8ada6b7617b1652f92d733519561cd6ada49a)
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v4 # ponytail: for maximum security, pin to a full SHA (e.g., @60edb5dd51cf34f62e84c59a334a132aa284dc6b)
         with:
           node-version: ${{ matrix.node }}
           cache: npm
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+        continue-on-error: true # Allow build to pass for non-critical audits, but report them
 
       - name: Install dependencies
         run: npm ci

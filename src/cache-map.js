@@ -126,7 +126,11 @@ function getUnixCacheMap(home, cacheDir, dataDir) {
       chrome: {
         paths: [
           path.join(cacheDir, "google-chrome"),
-          path.join(home, ".config", "google-chrome")
+          // Google Chrome cache directories only, NOT the entire profile
+          path.join(home, ".config", "google-chrome", "Default", "Cache"),
+          path.join(home, ".config", "google-chrome", "Default", "Code Cache"),
+          path.join(home, ".config", "google-chrome", "Default", "GPUCache"),
+          path.join(home, ".config", "google-chrome", "ShaderCache")
         ],
         protection: PROTECTION.PROTECTED,
         description: "Google Chrome"

@@ -247,6 +247,7 @@ ${color("Commands:", "cyan")}
   ${color("scan", "green")}           Scan caches without cleaning
   ${color("clean", "green")} <category>  Clean specific category
   ${color("clean-all", "green")}      Clean all categories (asks first)
+  ${color("audit", "green")}          Run security & supply chain audit
   ${color("config", "green")}         Edit configuration
   ${color("help", "green")}         Show this help
 
@@ -257,6 +258,7 @@ ${color("Options:", "cyan")}
   ${color("--json", "yellow")}       Machine-readable JSON output
   ${color("--table", "yellow")}      Table output (default)
   ${color("--dry-run", "yellow")}      Same as scan
+  ${color("--global", "yellow")}     (Audit only) Scan global npm packages
   ${color("-h, --help", "yellow")}     Show help
 
 ${color("Categories:", "cyan")}
@@ -269,6 +271,8 @@ ${color("Examples:", "cyan")}
   ${color("system-clean scan", "gray")}
   ${color("system-clean clean package", "gray")}
   ${color("system-clean clean-all --deep --force", "gray")}
+  ${color("system-clean audit", "gray")}
+  ${color("system-clean audit --global", "gray")}
 
 ${color("Learn more:", "cyan")}
   https://github.com/monanksojitra/system-clean

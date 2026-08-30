@@ -8,17 +8,82 @@ import path from "path";
 import { scanCacheEntry, getDirSize, formatSize } from "./scanner.js";
 import { CATEGORIES, getCategoryCaches, shouldCleanCache } from "./cache-map.js";
 
+import { isElevated, getHomeDir, getCacheDir, getDataDir, getTempDir } from "./detector.js";
+import { loadConfig } from "./config.js";
+
 function isUnsafeDeletionTarget(dirPath) {
   const resolved = path.resolve(dirPath);
-  const rootPath = path.parse(resolved).root;
-  const homePath = path.resolve(process.env.HOME || "");
+  const realResolved = fs.realpathSync.native(resolved); // Resolve symlinks
 
-  if (resolved === rootPath) return true;
-  if (homePath && resolved === homePath) return true;
-  if (resolved.length < 5) return true;
+  const rootPath = path.parse(realResolved).root;
+  const homePath = fs.realpathSync.native(getHomeDir());
+  const cachePath = fs.realpathSync.native(getCacheDir());
+  const dataPath = fs.realpathSync.native(getDataDir());
+  const tempPath = fs.realpathSync.native(getTempDir());
+
+  // Refuse if running as root
+  if (isElevated()) return true;
+
+  // Basic checks (root, home, too short)
+  if (realResolved === rootPath) return true;
+  if (realResolved === homePath) return true;
+  if (realResolved.length < 5) return true; // Catches paths like /tmp, /var, etc. too easily if not careful
+
+  // Must be strictly inside home, cache, data, or temp directories
+  const isUnderHome = realResolved.startsWith(homePath) && realResolved !== homePath;
+  const isUnderCache = realResolved.startsWith(cachePath) && realResolved !== cachePath;
+  const isUnderData = realResolved.startsWith(dataPath) && realResolved !== dataPath;
+  const isUnderTemp = realResolved.startsWith(tempPath) && realResolved !== tempPath;
+
+  if (!isUnderHome && !isUnderCache && !isUnderData && !isUnderTemp) {
+    return true;
+  }
+
+  // Deny-list sensitive directories under home (even if they are technically subdirectories)
+  const sensitivePaths = [
+    path.join(homePath, ".ssh"),
+    path.join(homePath, ".gnupg"),
+    path.join(homePath, ".aws"),
+    path.join(homePath, ".kube"),
+    path.join(homePath, ".docker"),
+    path.join(homePath, ".git")
+  ];
+
+  for (const p of sensitivePaths) {
+    if (realResolved.startsWith(p)) return true;
+  }
+
+  // Also deny specific browser profile configuration directories
+  // NOTE: Browser cache directories (e.g., ~/.cache/google-chrome/Default/Cache) are fine
+  // but config directories which contain user data (cookies, passwords) are NOT.
+  const browserProfileConfigs = [
+    path.join(homePath, ".config", "google-chrome"),
+    path.join(homePath, ".config", "BraveSoftware"),
+    path.join(homePath, ".mozilla", "firefox")
+  ];
+
+  for (const p of browserProfileConfigs) {
+    if (realResolved.startsWith(p)) {
+      // Allow specific cache subdirectories within browser profiles
+      if (
+        realResolved.includes(path.join("Default", "Cache")) ||
+        realResolved.includes(path.join("Default", "Code Cache")) ||
+        realResolved.includes(path.join("Default", "GPUCache")) ||
+        realResolved.includes("ShaderCache") ||
+        realResolved.includes("Cache")
+      ) {
+        // These are actual caches, allowed if part of a browser profile path
+        continue;
+      }
+      return true; // Block other parts of browser profiles
+    }
+  }
 
   return false;
 }
+
+// ponytail: global lock, per-account locks if throughput matters
+// This function needs the fs and path imports as well as the imports from detector and config
 
 /**
  * Remove a directory safely

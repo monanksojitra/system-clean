@@ -17,6 +17,51 @@ Cross-platform system cache cleaner for developers. Cleans npm, yarn, pip, uv, c
 - **Safe by Default**: Protected caches require `--deep` flag
 - **Interactive & CLI**: Works as command-line tool or library
 
+<div align="center">
+
+# ⚠️  DISCLAIMER — PLEASE READ BEFORE USE  ⚠️
+
+</div>
+
+> **[!CAUTION]** **DESTRUCTIVE TOOL — USE AT YOUR OWN RISK**
+>
+> This tool **permanently deletes files and formats data**. There is no undo.
+>
+> **The author (`@monanksojitra`) and all contributors expressly disclaim any and all liability.** We **cannot and will not be held responsible** for any **data loss, file deletion, format corruption, system damage, or any other issues** — whether caused by misuse, bugs, or any other reason — arising from the use or misuse of this software. **By using this tool, you agree to assume 100% of all risk.**
+
+### 🔴 NEVER do the following
+
+| Action | Risk |
+|--------|------|
+| Run as `root` / `sudo` | Can delete system-critical files — **OS may become unbootable** |
+| Use `--deep` without `scan` first | May delete browser profiles, configs, and irreplaceable data |
+| Skip reviewing `scan` output | Blind deletion — you will not know what was removed |
+| Run on a system you don't own | Unauthorized data destruction — **illegal in most jurisdictions** |
+| Pipe into other commands / scripts blindly | May trigger unintended deletions via chained commands |
+
+### 🟡 Best practices before every run
+
+1. **Run `system-clean scan`** (or `system-clean scan --json`) first.
+2. **Review every path** listed in the output — do not skip.
+3. **Verify** each target path is actually a cache you intended to clean.
+4. **Back up** important data before running `clean` or `clean-all`.
+5. **Never run this tool** if you are unsure about any path it reports.
+6. **Do not run scripts** from untrusted sources without reviewing their contents.
+
+### 🛡️ You are responsible for your data
+
+- **Always keep backups** of anything you cannot afford to lose.
+- **Test on a non-critical system** first if you are unsure.
+- **When in doubt, do not run.** A few hundred MB of cache is not worth your data.
+
+<div align="center">
+
+**By using this software, you acknowledge that you have read, understood, and accepted this disclaimer. You accept full responsibility for any consequences of using this tool.**
+
+</div>
+
+---
+
 ## Installation
 
 ```bash
@@ -46,6 +91,12 @@ system-clean clean package
 system-clean clean web
 system-clean clean build
 
+# Run security & supply chain audit on current directory
+system-clean audit
+
+# Audit global npm packages for suspicious lifecycle scripts
+system-clean audit --global
+
 # Clean all safe caches (asks confirmation)
 system-clean clean-all
 
@@ -62,6 +113,9 @@ system-clean scan --simple
 system-clean scan --json
 system-clean clean package --json --force
 system-clean clean-all --json --force
+
+# Run security & supply chain audit
+system-clean audit
 
 # Show help
 system-clean help
@@ -101,6 +155,8 @@ console.log(`Freed: ${cleanResults.totalBytesFreedFormatted}`);
 | `--force` | Skip confirmation |
 | `--simple` | Simple non-tech output |
 | `--json` | Machine-readable JSON output |
+| `--audit` | Run security audit on dependencies and scripts |
+| `--global` | (Audit only) Scan global npm packages |
 | `--help` | Show help |
 
 ## Examples
@@ -183,6 +239,25 @@ $ system-clean scan --json
   }
 }
 ```
+
+### Security & supply chain audit
+
+```bash
+# Scan local package.json for suspicious lifecycle scripts and run npm audit
+$ system-clean audit
+
+# Audit global npm packages
+$ system-clean audit --global
+```
+
+## Security Notes
+
+- **`--json` + `--force` required for cleaning**: When using `--json`, you must also pass `--force` for any clean operation. This prevents silent deletions in scripts — the tool will print a JSON error (`force_required`) and exit 1 otherwise.
+- **Refuses to clean as root**: If the process is running with elevated privileges (`isElevated()` is true), all `clean` and `clean-all` commands exit 1 with a clear error message. `scan` and `audit` still run normally.
+- **Browser caches only**: The `web` category targets cache subdirectories only (e.g., `Default/Cache`, `Default/Code Cache`, `GPUCache`, `ShaderCache`). Full browser profiles (history, cookies, logins) are never deleted — even with `--deep`.
+- **Deny-listed paths**: Directories such as `~/.ssh`, `~/.config/google-chrome` (profiles), `~/.gnupg`, `~/.aws`, `~/.kube`, `~/.docker`, `~/.git`, and `~/.npm-global` are never deleted. `~/.local/share/Trash` is `--deep`-only.
+- **Audit command**: `system-clean audit` scans `package.json` for suspicious lifecycle scripts (e.g., `postinstall` containing `curl |`, `node -e`, `eval(`) and runs `npm audit --json` when a lockfile is present. It exits 1 if any high/critical vulnerability or flagged lifecycle script is found.
+- **No runtime dependencies**: This tool has zero runtime deps, no `postinstall`, no network calls, no `eval`, and no `sudo`.
 
 ## Configuration
 
