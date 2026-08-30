@@ -11,15 +11,23 @@ import { CATEGORIES, getCategoryCaches, shouldCleanCache } from "./cache-map.js"
 import { isElevated, getHomeDir, getCacheDir, getDataDir, getTempDir } from "./detector.js";
 import { loadConfig } from "./config.js";
 
+function safeRealpath(p) {
+  try {
+    return fs.realpathSync.native(p);
+  } catch {
+    return p;
+  }
+}
+
 function isUnsafeDeletionTarget(dirPath) {
   const resolved = path.resolve(dirPath);
   const realResolved = fs.realpathSync.native(resolved); // Resolve symlinks
 
   const rootPath = path.parse(realResolved).root;
-  const homePath = fs.realpathSync.native(getHomeDir());
-  const cachePath = fs.realpathSync.native(getCacheDir());
-  const dataPath = fs.realpathSync.native(getDataDir());
-  const tempPath = fs.realpathSync.native(getTempDir());
+  const homePath = safeRealpath(getHomeDir());
+  const cachePath = safeRealpath(getCacheDir());
+  const dataPath = safeRealpath(getDataDir());
+  const tempPath = safeRealpath(getTempDir());
 
   // Refuse if running as root
   if (isElevated()) return true;
