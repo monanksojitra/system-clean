@@ -45,7 +45,28 @@ async function main() {
 
   // Get system info and cache map
   const sysInfo = getSystemInfo();
-  const cacheMap = getCacheMap(sysInfo);
+
+  // Build cache map; an unsupported platform should surface as a clear error
+  // instead of silently pointing at non-existent Linux paths.
+  let cacheMap;
+  try {
+    cacheMap = getCacheMap(sysInfo);
+  } catch (err) {
+    if (opts.json) {
+      printJson({
+        ok: false,
+        command: "scan",
+        error: {
+          code: "unsupported_platform",
+          message: err.message,
+          platform: sysInfo.platform
+        }
+      });
+    } else {
+      logger.error(err.message);
+    }
+    process.exit(1);
+  }
 
   // Check platform
   if (sysInfo.platform === PLATFORMS.WINDOWS && !opts.json) {
@@ -575,12 +596,16 @@ function handleConfig(opts, config) {
  * Handle audit command
  */
 function handleAudit(opts) {
-  const targetDir = opts.global ? process.cwd() : process.cwd();
+  // In global mode, `audit()` reads from the npm global root — cwd is
+  // irrelevant. Surface that in the report so users can see what was
+  // actually scanned.
+  const targetDir = opts.global ? "<global>" : process.cwd();
   const report = audit(targetDir, { global: opts.global });
-  printAuditReport(report);
 
   if (opts.json) {
     printJson({ ok: true, command: "audit", ...report });
+  } else {
+    printAuditReport(report);
   }
 
   if (report.hasIssues) {

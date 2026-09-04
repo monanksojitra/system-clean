@@ -16,6 +16,9 @@ import {
   isDeepEnabledForCategory,
   getConfigCleanableCategories
 } from "../src/runtime-config.js";
+import { getCacheMapForPlatform, CATEGORIES, PROTECTION } from "../src/platform.js";
+import { getCacheMap } from "../src/cache-map.js";
+import { PLATFORMS, isElevated, detectLinuxDistro, LINUX_DISTROS } from "../src/detector.js";
 
 const testFilePath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(testFilePath), "..");
@@ -167,4 +170,159 @@ test("clean-all json respects protected categories config", () => {
   assert.equal(parsed.command, "clean-all");
   assert.equal(parsed.status, "no-op");
   assert.deepEqual(parsed.protectedCategories.sort(), ["build", "package", "system", "web"]);
+});
+
+test("getCacheMapForPlatform returns full Linux map with expected shape", () => {
+  const map = getCacheMapForPlatform(
+    PLATFORMS.LINUX,
+    "/home/u",
+    "/home/u/.cache",
+    "/home/u/.local/share"
+  );
+
+  assert.equal(Object.keys(map[CATEGORIES.PACKAGE]).length, 9);
+  assert.equal(Object.keys(map[CATEGORIES.WEB]).length, 5);
+  assert.equal(Object.keys(map[CATEGORIES.BUILD]).length, 8);
+  assert.equal(Object.keys(map[CATEGORIES.SYSTEM]).length, 6);
+
+  // Every entry must declare a known protection level.
+  const allEntries = Object.values(map).flatMap((c) => Object.values(c));
+  for (const entry of allEntries) {
+    assert.ok(
+      entry.protection === PROTECTION.SAFE || entry.protection === PROTECTION.PROTECTED,
+      `unexpected protection value: ${entry.protection}`
+    );
+  }
+});
+
+test("getCacheMapForPlatform returns the same shape for macOS as Linux", () => {
+  const linux = getCacheMapForPlatform(PLATFORMS.LINUX, "/h", "/h/.cache", "/h/.local/share");
+  const macos = getCacheMapForPlatform(PLATFORMS.MACOS, "/h", "/h/.cache", "/h/.local/share");
+
+  for (const category of Object.values(CATEGORIES)) {
+    assert.deepEqual(
+      Object.keys(macos[category]).sort(),
+      Object.keys(linux[category]).sort(),
+      `macOS ${category} keys differ from Linux`
+    );
+  }
+});
+
+test("getCacheMapForPlatform Windows uses home/cacheDir/dataDir and is non-empty", () => {
+  const home = "C:\\Users\\test";
+  const cacheDir = "C:\\Users\\test\\AppData\\Local";
+  const dataDir = "C:\\Users\\test\\AppData\\Local";
+
+  const map = getCacheMapForPlatform(PLATFORMS.WINDOWS, home, cacheDir, dataDir);
+
+  for (const category of Object.values(CATEGORIES)) {
+    assert.ok(
+      Object.keys(map[category]).length > 0,
+      `Windows ${category} bucket must not be empty`
+    );
+  }
+
+  // npm: %LocalAppData%\npm-cache and %AppData%\Roaming\npm
+  assert.deepEqual(map[CATEGORIES.PACKAGE].npm.paths, [
+    "C:\\Users\\test\\AppData\\Local\\npm-cache",
+    "C:\\Users\\test\\AppData\\Roaming\\npm"
+  ]);
+
+  // pnpm: %LocalAppData%\pnpm-cache
+  assert.ok(
+    map[CATEGORIES.PACKAGE].pnpm.paths.includes("C:\\Users\\test\\AppData\\Local\\pnpm-cache"),
+    "pnpm cache path must include %LocalAppData%\\pnpm-cache"
+  );
+
+  // Chrome: %LocalAppData%\Google\Chrome\User Data\Default\Cache
+  assert.ok(
+    map[CATEGORIES.WEB].chrome.paths.some((p) =>
+      p.endsWith("Google\\Chrome\\User Data\\Default\\Cache")
+    ),
+    "chrome cache path must end with Google\\Chrome\\User Data\\Default\\Cache"
+  );
+
+  // Windows protection values are only SAFE or PROTECTED (no stale "system").
+  const allEntries = Object.values(map).flatMap((c) => Object.values(c));
+  for (const entry of allEntries) {
+    assert.ok(
+      entry.protection === PROTECTION.SAFE || entry.protection === PROTECTION.PROTECTED,
+      `unexpected protection value: ${entry.protection}`
+    );
+  }
+});
+
+test("getCacheMapForPlatform throws on unknown platforms", () => {
+  assert.throws(
+    () => getCacheMapForPlatform("freebsd", "/h", "/h/.cache", "/h/.local/share"),
+    /Unsupported platform: freebsd/
+  );
+  assert.throws(
+    () => getCacheMapForPlatform(PLATFORMS.UNKNOWN, "/h", "/h/.cache", "/h/.local/share"),
+    /Unsupported platform: unknown/
+  );
+});
+
+test("getCacheMap wrapper produces the same shape as direct platform call", () => {
+  const sysInfo = {
+    platform: PLATFORMS.LINUX,
+    homedir: "/home/u",
+    cachedir: "/home/u/.cache",
+    datadir: "/home/u/.local/share"
+  };
+
+  const fromWrapper = getCacheMap(sysInfo);
+  const fromDirect = getCacheMapForPlatform(
+    PLATFORMS.LINUX,
+    "/home/u",
+    "/home/u/.cache",
+    "/home/u/.local/share"
+  );
+
+  for (const category of Object.values(CATEGORIES)) {
+    assert.deepEqual(
+      Object.keys(fromWrapper[category]).sort(),
+      Object.keys(fromDirect[category]).sort()
+    );
+  }
+});
+
+test("getCacheMap propagates unsupported-platform error from the wrapper", () => {
+  const sysInfo = {
+    platform: "freebsd",
+    homedir: "/home/u",
+    cachedir: "/home/u/.cache",
+    datadir: "/home/u/.local/share"
+  };
+
+  assert.throws(() => getCacheMap(sysInfo), /Unsupported platform: freebsd/);
+});
+
+test("isElevated returns false for the test process (not running as root)", () => {
+  // The test process should be running as a regular user, not root, so
+  // isElevated() must return false. This is a smoke test that exercises
+  // both the POSIX (process.getuid) and the Windows (System32 write
+  // probe) branches — whichever one matches process.platform.
+  assert.equal(typeof isElevated, "function");
+  assert.equal(isElevated(), false);
+});
+
+test("detectLinuxDistro returns a known distro value or UNKNOWN", () => {
+  // The function reads real /etc/os-release, so on this system it should
+  // return one of the known values — never throw, never return UBUNTU
+  // spuriously from a bare machine-id.
+  const distro = detectLinuxDistro();
+  const knownValues = new Set(Object.values(LINUX_DISTROS));
+  assert.ok(knownValues.has(distro), `unexpected distro value: ${distro}`);
+});
+
+test("handleAudit --global reports <global> as the target", () => {
+  const result = runCli(["audit", "--global", "--json"]);
+
+  // The audit command always exits 0 unless it finds issues; even
+  // without issues we should be able to parse the JSON.
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.command, "audit");
+  assert.equal(parsed.target, "<global>");
 });

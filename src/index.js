@@ -29,10 +29,6 @@ export * as logger from "./logger.js";
  * @returns {object} Clean results
  */
 export async function quickClean(targets = "all", options = {}) {
-  const { getSystemInfo } = await import("./detector.js");
-  const { getCacheMap } = await import("./cache-map.js");
-  const { clean } = await import("./cleaner.js");
-
   const sysInfo = getSystemInfo();
   const cacheMap = getCacheMap(sysInfo);
 
@@ -45,10 +41,6 @@ export async function quickClean(targets = "all", options = {}) {
  * @returns {object} Scan results
  */
 export async function quickScan(options = {}) {
-  const { getSystemInfo } = await import("./detector.js");
-  const { getCacheMap } = await import("./cache-map.js");
-  const { scanAll } = await import("./scanner.js");
-
   const sysInfo = getSystemInfo();
   const cacheMap = getCacheMap(sysInfo);
 

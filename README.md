@@ -349,6 +349,34 @@ Release automation:
 - npm publishing runs only on `v*` tags via [.github/workflows/release.yml](.github/workflows/release.yml)
 - Tag version must match `package.json` version
 
+## Changelog
+
+### 1.0.3 — Bug fixes
+
+**Critical — Windows support**
+- `getWindowsCacheMap` now returns real `%LocalAppData%` / `%AppData%` cache paths for npm, pnpm, yarn, pip, browsers, build tools, and system caches, instead of silently returning empty buckets. Windows users were seeing "0 B cleaned" with exit code 0 on every scan.
+- `isElevated()` on Windows now probes write access to `System32` instead of calling `process.getuid` (which is `undefined` on Windows). The previous implementation always returned `false`, so admin users could run the cleaner and risk destroying system files.
+- `path.win32.join` is used for Windows map paths so backslashes survive on POSIX CI/dev machines.
+
+**Correctness**
+- `detectLinuxDistro()` no longer defaults to `UBUNTU` when only `/etc/machine-id` exists. A bare machine-id means "systemd", not Ubuntu — it now returns `UNKNOWN` when neither `/etc/os-release` nor `/etc/lsb-release` matches.
+- `getCacheMapForPlatform` throws `Unsupported platform: <name>` for unknown platforms instead of silently falling through to the Linux cache map. The CLI surfaces this as a JSON-friendly error in `--json` mode.
+- `handleAudit --global` now reports `target: "<global>"` (was `target: process.cwd()`, a copy-paste bug).
+- `handleAudit --json` no longer pre-pends the audit banner to the JSON output.
+
+**Cleanup**
+- Dropped the duplicate default exports of `src/cache-map.js` and `src/platform.js`.
+- Dropped dead `import path` / `import { PLATFORMS }` from `src/cache-map.js`.
+- Dropped unused `PROTECTION.SYSTEM`.
+- Removed `await import()` ceremony from `src/index.js` `quickClean` / `quickScan` (modules were already statically imported).
+
+**Tests**
+- 9 new unit tests for the platform dispatcher (Linux shape, macOS = Linux, Windows uses home/cacheDir/dataDir, unknown platform throws, `getCacheMap` wrapper, `isElevated`, `detectLinuxDistro`, audit `--global --json` target).
+
+### 1.0.2
+
+- Initial stable release.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.

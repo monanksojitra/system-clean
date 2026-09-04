@@ -86,14 +86,10 @@ export function detectLinuxDistro() {
       if (content.includes("Fedora")) return LINUX_DISTROS.FEDORA;
     }
 
-    // Check ID_MACHINE_ID for additional hints
-    if (fs.existsSync("/etc/machine-id")) {
-      const machineId = fs.readFileSync("/etc/machine-id", "utf8").trim();
-      if (machineId && machineId.length === 32) {
-        // Likely a systemd-based Linux
-        return LINUX_DISTROS.UBUNTU; // Default to Ubuntu as it's most common
-      }
-    }
+    // Note: a bare /etc/machine-id does NOT mean Ubuntu — it just means
+    // systemd. The previous version defaulted to UBUNTU here, which was
+    // wrong for Arch, Fedora, openSUSE, etc. If we get this far without
+    // a match, we genuinely don't know the distro.
   } catch {
     // Silently fail and return unknown
   }
@@ -205,13 +201,25 @@ export function getSystemInfo() {
  * @returns {boolean} True if root/admin
  */
 export function isElevated() {
-  // Check Unix-like (Linux/macOS)
-  if (detectPlatform() !== PLATFORMS.WINDOWS) {
-    return process.getuid && process.getuid() === 0;
+  // POSIX (Linux/macOS): process.getuid is the canonical root check.
+  if (process.platform !== "win32") {
+    return typeof process.getuid === "function" && process.getuid() === 0;
   }
 
-  // Windows - check if admin (simplified check)
-  return process.getuid && process.getuid() === 0;
+  // Windows: process.getuid is undefined, so the previous implementation
+  // always returned false here — which silently let admin users run the
+  // cleaner and risk destroying system files. Probe write access to
+  // System32: admins can write, non-admins cannot.
+  try {
+    const sys32 = path.join(
+      process.env.SystemRoot || "C:\\Windows",
+      "System32"
+    );
+    fs.accessSync(sys32, fs.constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export default {
