@@ -1,6 +1,6 @@
 {
   "name": "@monanksojitra/system-clean",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Cross-platform system cache cleaner for developers",
   "main": "src/index.js",
   "exports": {
